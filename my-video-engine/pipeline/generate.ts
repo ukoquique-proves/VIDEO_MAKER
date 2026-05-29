@@ -16,6 +16,7 @@
 import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 import * as dotenv from "dotenv";
 import { VideoDataSchema, VideoData } from "../src/Schema";
 import { createTTSProvider } from "./tts/TTSProvider";
@@ -46,42 +47,36 @@ const OUTPUT_DIR  = path.join(__dirname, "..", "output");
 const VIDEOS_DIR  = path.join(OUTPUT_DIR, "videos");
 const PROPS_DIR   = path.join(OUTPUT_DIR, "props");
 const SAMPLE_DIR  = path.join(__dirname, "..", "sample_data");
-const TIMESTAMP   = Date.now();
+const TIMESTAMP   = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`; // Chronological + unique ID
 const SLUG        = topic.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
 
-// ─── Prompt enrichment: inject topic-specific facts ──────────────────────────
+// ─── Prompt enrichment: load topic-specific facts from JSON ──────────────────
 function buildSystemPrompt(topic: string): string {
     const t = topic.toLowerCase();
-
-    // Build a facts block based on keywords in the topic
+    const TOPICS_DIR = path.join(__dirname, "topics");
+    
     let factsBlock = "";
+    let channelContext = "teaching software engineering and modern development";
 
-    if (t.includes("puppy linux") || t.includes("puppylinux")) {
-        factsBlock = `
-TOPIC FACTS — use these specific details in the script, do NOT omit them:
-- Puppy Linux weighs ~300MB (full ISO), boots into RAM entirely
-- Minimum RAM: 256MB (runs comfortably on 512MB+)
-- Current release: Puppy Linux 9.x (based on Ubuntu/Debian Focal/Jammy)
-- Runs on hardware from 2005 onward — Pentium 4, old netbooks, USB sticks
-- Supported AI-assisted IDEs in 2026: VS Code (via AppImage), Cursor (AppImage), GitHub Copilot (VS Code extension), Codeium (free Copilot alternative)
-- Python AI stack works: pip install torch tensorflow (CPU-only builds)
-- Boot-to-code time: under 60 seconds on a USB stick
-- Key bash commands: \`puppy-install-pkg python3-pip\`, \`wget <AppImage URL> && chmod +x *.AppImage\`
-- Frugal install: runs from RAM, saves session as .sfs file on shutdown`;
-    } else if (t.includes("hashmap") || t.includes("hash map")) {
-        factsBlock = `
-TOPIC FACTS:
-- Java HashMap: O(1) average for get/put/remove
-- Backed by an array of buckets + linked lists / red-black trees (Java 8+)
-- Default initial capacity: 16, load factor: 0.75
-- Not thread-safe; use ConcurrentHashMap for concurrency
-- Allows one null key, multiple null values`;
+    if (fs.existsSync(TOPICS_DIR)) {
+        // Sort files alphabetically to ensure deterministic keyword matching priority
+        const topicFiles = fs.readdirSync(TOPICS_DIR)
+            .filter(f => f.endsWith(".json"))
+            .sort();
+        
+        for (const file of topicFiles) {
+            try {
+                const content = JSON.parse(fs.readFileSync(path.join(TOPICS_DIR, file), "utf-8"));
+                if (content.keywords.some((k: string) => t.includes(k.toLowerCase()))) {
+                    factsBlock = `\nTOPIC FACTS — use these specific details in the script, do NOT omit them:\n- ${content.facts.join("\n- ")}`;
+                    channelContext = content.channelContext;
+                    break;
+                }
+            } catch (e) {
+                console.warn(`   ⚠️  Failed to parse topic file: ${file}`);
+            }
+        }
     }
-    // More topics can be added here as the channel grows
-
-    const channelContext = t.includes("puppy linux") || t.includes("puppylinux")
-        ? "teaching Linux, lightweight OS setups, and AI-assisted development"
-        : "teaching Java and backend development";
 
     return `You are an expert educational video scriptwriter for a YouTube Shorts channel ${channelContext}.
 ${factsBlock}
@@ -242,8 +237,12 @@ function renderVideo(propsPath: string): void {
         .map(f => ({ name: f, path: path.join(VIDEOS_DIR, f), mtime: fs.statSync(path.join(VIDEOS_DIR, f)).mtime }))
         .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
     for (const old of allVideos.slice(2)) {
-        fs.unlinkSync(old.path);
-        console.log(`   🧹  Removed old video: ${old.name}`);
+        try {
+            fs.unlinkSync(old.path);
+            console.log(`   🧹  Removed old video: ${old.name}`);
+        } catch (e) {
+            // Ignore if file already deleted by concurrent process
+        }
     }
 }
 
@@ -337,7 +336,8 @@ function cleanupOldAudioFiles(): void {
 
     // ── Auto-correct durationSeconds from real transcript ──────────────────
     // The LLM often generates a transcript longer than 30s despite instructions.
-    // We trust the actual word timestamps (from TTS) over the LLM's declared value.
+    // NOTE: In DRY_RUN mode, this corrects against LLM draft timestamps (unverified).
+    // In a full run, this corrects against real TTS word-level timestamps.
     const lastWord = updatedData.transcript[updatedData.transcript.length - 1];
     if (lastWord) {
         const realDuration = Math.ceil(lastWord.endTime) + 1; // +1s padding after last word
@@ -360,15 +360,25 @@ function cleanupOldAudioFiles(): void {
         .map(f => ({ name: f, path: path.join(PROPS_DIR, f), mtime: fs.statSync(path.join(PROPS_DIR, f)).mtime }))
         .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
     for (const old of allProps.slice(3)) {
-        fs.unlinkSync(old.path);
-        console.log(`   🧹  Removed old props: ${old.name}`);
+        try {
+            fs.unlinkSync(old.path);
+            console.log(`   🧹  Removed old props: ${old.name}`);
+        } catch (e) {
+            // Ignore if file already deleted by concurrent process
+        }
     }
 
-    if (!DRY_RUN) {
-        renderVideo(propsPath);
-        cleanupOldAudioFiles(); // Cleanup old MP3s after successful render
-    } else {
-        console.log("\n✅  Dry run finished — Ready for full pipeline with API keys!");
-        console.log(`   Run without --dry-run to generate video: npm run pipeline "${topic}"`);
+    try {
+        if (!DRY_RUN) {
+            renderVideo(propsPath);
+        } else {
+            console.log("\n✅  Dry run finished — Ready for full pipeline with API keys!");
+            console.log(`   Run without --dry-run to generate video: npm run pipeline "${topic}"`);
+        }
+    } finally {
+        // Only scan/cleanup audio if we actually ran a render or generated audio
+        if (!DRY_RUN) {
+            cleanupOldAudioFiles(); 
+        }
     }
 })();

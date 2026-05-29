@@ -67,7 +67,7 @@ Render entry file is always **`src/index.tsx`** (not `.ts`). Compositions: **`Ma
 
 `my-video-engine/pipeline/generate.ts`:
 
-1. **LLM** — Builds JSON validated against `src/Schema.ts`. Provider order: **Groq** (`GROQ_API_KEY`, model `llama-3.3-70b-versatile`) → **Gemini** (`GEMINI_API_KEY`, `gemini-2.5-flash`) → **OpenAI** (`OPENAI_API_KEY`, `gpt-4o-mini`). If none are set, it falls back to `sample_data/demo.json`.
+1. **LLM** — Builds JSON validated against `src/Schema.ts`. Provider order: **Gemini** (`GEMINI_API_KEY`, `gemini-2.5-flash`) → **Groq** (`GROQ_API_KEY`, model `llama-3.3-70b-versatile`) → **OpenAI** (`OPENAI_API_KEY`, `gpt-4o-mini`). If none are set, it falls back to `sample_data/demo.json`.
 2. **TTS (Text-to-Speech)** — Modular provider architecture supports **Google Cloud TTS** (recommended, free tier) or **ElevenLabs** (fallback). Provider auto-selected by available API keys. Transcript words/times are **rebuilt from API timing data** (not the LLM's draft). Without TTS keys, audio is skipped (silent render).
    - **Google Cloud TTS**: 4 million characters/month free. Set `GOOGLE_CLOUD_API_KEY` and optional `GOOGLE_CLOUD_VOICE_NAME` (default: `en-US-Standard-C`).
    - **ElevenLabs**: Requires paid plan for library voices. Set `ELEVENLABS_API_KEY` and optional `ELEVENLABS_VOICE_ID`.

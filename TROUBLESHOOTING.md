@@ -144,7 +144,10 @@ This makes code panels overshoot slightly then settle, creating a more natural f
 
 ### Subtitles
 
-Drive copy from **word-level** timestamps (`startTime` / `endTime` in seconds, see `Schema.ts`). The **current** word is emphasized (e.g. cyan); **upcoming** words are **dimmed** (not full white); during **gaps** between words, keep the **last** spoken word visible but dimmed so the line does not flash empty.
+- Drive copy from **word-level** timestamps (`startTime` / `endTime` in seconds, see `Schema.ts`).
+- The **current** word is emphasized (e.g. cyan); **upcoming** words are **dimmed** (not full white).
+- During **gaps** between words, keep the **last** spoken word visible but dimmed so the line does not flash empty.
+- **Asymmetric windowing**: The subtitle box shows 3 words before and 5 words after the current active word. This choice prioritizes reading ahead, which is more natural for viewers, while keeping enough trailing context to maintain visual stability.
 
 ### Code highlighting
 
@@ -154,7 +157,7 @@ Drive copy from **word-level** timestamps (`startTime` / `endTime` in seconds, s
 ### Chapter Progress Bar
 
 - Shows segment ticks at each scene start
-- Displays **active scene label only** (prevents overlap on short scenes)
+- Displays **active scene label only** — this is a deliberate design choice to prevent label crowding and overlap on the narrow progress bar, especially on mobile-oriented vertical aspect ratios.
 - Disable with `showProgressBar: false` on `VideoData` props
 - Positioned at `bottom: 0` to avoid subtitle overlap
 
@@ -166,8 +169,8 @@ See `.env.example` for full list. Key variables:
 
 | Variable | Purpose | Required |
 |----------|---------|----------|
-| `GROQ_API_KEY` | LLM script generation (priority) | One of GROQ/GEMINI/OPENAI |
-| `GEMINI_API_KEY` | LLM script generation | One of GROQ/GEMINI/OPENAI |
+| `GEMINI_API_KEY` | LLM script generation (priority) | One of GROQ/GEMINI/OPENAI |
+| `GROQ_API_KEY` | LLM script generation | One of GROQ/GEMINI/OPENAI |
 | `GOOGLE_CLOUD_API_KEY` | TTS (recommended, free tier) | One of GOOGLE_CLOUD/ELEVENLABS for audio |
 | `ELEVENLABS_API_KEY` | TTS (fallback, paid voices) | Optional |
 | `ELEVENLABS_VOICE_ID` | Custom ElevenLabs voice | Optional |

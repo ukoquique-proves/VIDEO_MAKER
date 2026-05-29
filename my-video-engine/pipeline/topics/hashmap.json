@@ -1,0 +1,11 @@
+{
+  "keywords": ["hashmap", "hash map"],
+  "channelContext": "teaching Java and backend development",
+  "facts": [
+    "Java HashMap: O(1) average for get/put/remove",
+    "Backed by an array of buckets + linked lists / red-black trees (Java 8+)",
+    "Default initial capacity: 16, load factor: 0.75",
+    "Not thread-safe; use ConcurrentHashMap for concurrency",
+    "Allows one null key, multiple null values"
+  ]
+}

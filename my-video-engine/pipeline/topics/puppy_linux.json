@@ -1,0 +1,15 @@
+{
+  "keywords": ["puppy linux", "puppylinux"],
+  "channelContext": "teaching Linux, lightweight OS setups, and AI-assisted development",
+  "facts": [
+    "Puppy Linux weighs ~300MB (full ISO), boots into RAM entirely",
+    "Minimum RAM: 256MB (runs comfortably on 512MB+)",
+    "Current release: Puppy Linux 9.x (based on Ubuntu/Debian Focal/Jammy)",
+    "Runs on hardware from 2005 onward — Pentium 4, old netbooks, USB sticks",
+    "Supported AI-assisted IDEs in 2026: VS Code (via AppImage), Cursor (AppImage), GitHub Copilot (VS Code extension), Codeium (free Copilot alternative)",
+    "Python AI stack works: pip install torch tensorflow (CPU-only builds)",
+    "Boot-to-code time: under 60 seconds on a USB stick",
+    "Key bash commands: `puppy-install-pkg python3-pip`, `wget <AppImage URL> && chmod +x *.AppImage`",
+    "Frugal install: runs from RAM, saves session as .sfs file on shutdown"
+  ]
+}

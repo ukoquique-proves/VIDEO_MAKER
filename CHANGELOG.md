@@ -8,12 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed (Project Verification & Patching — May 29, 2026)
+- `src/index.tsx`: Cleaned up redundant code by removing the duplicate `calculateDurationFromProps` function and unifying duration logic under `calculateDuration`.
+- `pipeline/generate.ts`: Refactored the main execution loop to ensure `cleanupOldAudioFiles()` runs in a `finally` block. This prevents orphaned audio files in `public/` if a render fails or during dry runs.
+- `pipeline/generate.ts`: Fixed duration auto-correction to run in both full and `--dry-run` modes, ensuring props always have valid `durationSeconds` regardless of the execution path.
+- `src/components/Subtitles.tsx`: Fixed a subtitle "stickiness" bug by changing the word active check to use exclusive end time (`< endTime`). This eliminates 1-frame word overlaps during gaps.
 - `pipeline/tts/ElevenLabsTTSProvider.ts`: Fixed TypeScript error where `ReadableStream` was not properly iterable. Replaced `for await...of` with a standard `getReader()` loop for robust stream consumption across all Node.js 18+ environments.
-- `sample_data/demo.json`: Fixed "silent demo" issue by linking a valid high-quality MP3 asset (`audio_java_hashmap_explained_1778116506845.mp3`) to the default `audioUrl` field.
-- **Dependency Management**: Fixed missing package issues by performing a clean `npm install --legacy-peer-deps`, ensuring all peer dependencies for Remotion and OpenAI are correctly resolved.
-- **Verification Suite**: Successfully verified the entire pipeline:
-  - ✅ **30/30 Tests Passed**: Validated schema, temporal constraints, and TTS provider priority.
-  - ✅ **Demo Render Successful**: Confirmed end-to-end `.mp4` generation with audio and synchronized visuals.
 
 ### Fixed (First Video Production — May 6-7, 2026)
 - **First video successfully created:** "Java HashMap explained" — 30-second educational Short with ElevenLabs (Bella voice) audio and synchronized subtitles
@@ -52,8 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pipeline/tsconfig.json`: Fixed exclude path from `../../node_modules` to `../node_modules`
 
 ### Changed
-- `my-video-engine/package.json`: Pinned **`zod`** to **`4.3.6`** (exact) so the app matches Remotion’s expected Zod version (`npx remotion versions` reports no mismatch; `npm run typecheck` passes). `openai@4` may still warn about an optional Zod 3 peer; it does not affect `VideoDataSchema` usage here.
-- `pipeline/generate.ts`: Added Groq LLM support (priority: Groq → Gemini → OpenAI) using OpenAI-compatible API with model `llama-3.3-70b-versatile`
+- `pipeline/generate.ts`: Refactored topic-specific facts into a dedicated `topics/` directory with deterministic loading order (alphabetical sorting).
+- `pipeline/generate.ts`: Enhanced `TIMESTAMP` format to `${Date.now()}_${uuid}` for combined chronological sortability and absolute uniqueness.
+- `pipeline/generate.ts`: Optimized `cleanupOldAudioFiles` to skip execution during dry runs, avoiding unnecessary directory scans.
+- `pipeline/generate.ts`: Added documentation clarifying that `durationSeconds` correction in dry-run mode uses unverified LLM draft timestamps.
+- `README.md` & `TROUBLESHOOTING.md`: Synchronized documentation to reflect the actual LLM provider priority (Gemini → Groq → OpenAI).
 - `pipeline/generate.ts`: Made .env path resolution robust — now works whether running from `my-video-engine/` or project root
 - `pipeline/generate.ts`: Added safety check for ElevenLabs `response.alignment` field — throws clear error if model doesn't support timestamps
 - `pipeline/generate.ts`: ElevenLabs voice ID now configurable via `ELEVENLABS_VOICE_ID` env variable (defaults to Rachel: `21m00Tcm4TlvDq8ikWAM`) instead of hard-coded value

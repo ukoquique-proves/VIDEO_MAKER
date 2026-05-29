@@ -24,7 +24,7 @@ export const Subtitles: React.FC<SubtitlesProps> = ({
 
     // Find active word index
     const activeIndex = transcript.findIndex(
-        (w) => currentTimeSec >= w.startTime && currentTimeSec <= w.endTime
+        (w) => currentTimeSec >= w.startTime && currentTimeSec < w.endTime
     );
 
     // Find the last word whose startTime has passed (most recently spoken)

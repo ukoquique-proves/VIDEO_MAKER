@@ -73,12 +73,6 @@ public static String greet(String name) {
 const calculateDuration = (props: VideoData, fps: number): number =>
     toFrames(getDurationSeconds(props), fps);
 
-// ─── Dynamic duration calculator ────────────────────────────────────────────────
-const calculateDurationFromProps = (props: VideoData, fps: number): number => {
-    const duration = getDurationSeconds(props);
-    return toFrames(duration, fps);
-};
-
 // ─── Register compositions ─────────────────────────────────────────────────────
 export const RemotionRoot: React.FC = () => {
     const fps = 30;
@@ -96,7 +90,7 @@ export const RemotionRoot: React.FC = () => {
                 defaultProps={defaultProps}
                 calculateMetadata={({ props }) => {
                     return {
-                        durationInFrames: calculateDurationFromProps(props as VideoData, fps),
+                        durationInFrames: calculateDuration(props as VideoData, fps),
                     };
                 }}
             />
@@ -112,7 +106,7 @@ export const RemotionRoot: React.FC = () => {
                 defaultProps={defaultProps}
                 calculateMetadata={({ props }) => {
                     return {
-                        durationInFrames: calculateDurationFromProps(props as VideoData, fps),
+                        durationInFrames: calculateDuration(props as VideoData, fps),
                     };
                 }}
             />
