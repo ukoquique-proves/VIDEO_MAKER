@@ -1,0 +1,39 @@
+{
+  "name": "my-video-engine",
+  "version": "1.0.0",
+  "description": "AICodeKing-style automated video generator using Remotion",
+  "scripts": {
+    "start": "npx remotion studio src/index.tsx",
+    "build": "npx remotion render src/index.tsx Main output/MyVideo.mp4",
+    "render:demo": "npx remotion render src/index.tsx Main output/demo.mp4 --props='sample_data/demo.json'",
+    "typecheck": "tsc --noEmit",
+    "pipeline": "ts-node pipeline/generate.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "postinstall": "echo 'Note: Use npm install --legacy-peer-deps if you encounter Zod/OpenAI dependency conflicts'"
+  },
+  "dependencies": {
+    "@aws-sdk/client-polly": "^3.967.0",
+    "@elevenlabs/elevenlabs-js": "^2.45.0",
+    "@google/generative-ai": "^0.21.0",
+    "@remotion/cli": "^4.0.0",
+    "dotenv": "^16.4.7",
+    "microsoft-cognitiveservices-speech-sdk": "^1.49.0",
+    "openai": "^4.0.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "remotion": "^4.0.0",
+    "shiki": "^1.29.2",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  }
+}
