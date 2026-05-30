@@ -81,7 +81,7 @@ function buildSystemPrompt(topic: string): string {
     return `You are an expert educational video scriptwriter for a YouTube Shorts channel ${channelContext}.
 ${factsBlock}
 
-Generate a 30-second educational video in JSON format matching this TypeScript schema:
+Generate an educational video in JSON format matching this TypeScript schema:
 {
   audioUrl: "" (empty, we'll fill later),
   transcript: [{ word: string, startTime: number, endTime: number }][],
@@ -90,20 +90,29 @@ Generate a 30-second educational video in JSON format matching this TypeScript s
     | { type: "title", startTime: number, endTime: number, heading: string, subheading?: string }
     | { type: "code", startTime: number, endTime: number, snippetIndex: number }
     | { type: "split", startTime: number, endTime: number, snippetIndex: number, bullets: string[] }
+    | { type: "image", startTime: number, endTime: number, imageUrl: string, caption?: string }
   )[],
   durationSeconds?: number,
   showProgressBar?: boolean
 }
 
 Rules:
-- Total duration: 30 to 60 seconds (set durationSeconds accordingly — do NOT cut the script short to fit 30s)
+- Total duration: 30 to 180 seconds (set durationSeconds accordingly — do NOT cut the script short to fit a small time limit)
 - Omit showProgressBar unless you want it off; default in the app is on
-- 3-4 scenes: start with title, show code, end with split (code + bullets)
 - transcript must cover the full audio narration word by word with realistic timestamps
 - All timestamps must be consistent (no overlaps)
 - Code must be clean, complete, and directly relevant to the topic facts above
 - Use SPECIFIC numbers and tool names from the facts — avoid vague language like "very fast" or "lightweight"
 - Bash snippets should show real commands a user would actually run
+- For the "Proyecto de Permacultura para Pedro", use the following image assets in your scenes:
+  - "/pedro_assets/condiciones_operativas.png" (Bloque 1)
+  - "/pedro_assets/estaciones_vida.png" (Bloque 2)
+  - "/pedro_assets/soberania_alimentaria.png" (Bloque 2)
+  - "/pedro_assets/burbuja_naturaleza.png" (Bloque 3)
+  - "/pedro_assets/baño_seco_boutique.png" (Bloque 3)
+  - "/pedro_assets/estacion_carga_solar.png" (Bloque 3)
+  - "/pedro_assets/proyeccion_financiera.png" (Bloque 4)
+- When using images, set the scene type to "image" and provide the imageUrl and a relevant caption.
 
 Respond ONLY with valid JSON, no markdown fences.`;
 }
@@ -116,7 +125,7 @@ async function generateScript(): Promise<VideoData> {
 
     let rawData: unknown;
     // Priority: Gemini > Groq > OpenAI (Gemini has most reliable JSON output)
-    if (ENV_KEYS.GEMINI) {
+    if (ENV_KEYS.GEMINI && ENV_KEYS.GEMINI !== "your_gemini_key_here") {
         const { GoogleGenerativeAI } = await import("@google/generative-ai");
         const genAI = new GoogleGenerativeAI(ENV_KEYS.GEMINI);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -130,7 +139,7 @@ async function generateScript(): Promise<VideoData> {
 
         const content = result.response.text();
         rawData = JSON.parse(content);
-    } else if (ENV_KEYS.GROQ) {
+    } else if (ENV_KEYS.GROQ && ENV_KEYS.GROQ !== "your_groq_key_here" && ENV_KEYS.GROQ.startsWith("gsk_")) {
         const OpenAI = (await import("openai")).default;
         const groq = new OpenAI({
             apiKey: ENV_KEYS.GROQ,
@@ -147,7 +156,7 @@ async function generateScript(): Promise<VideoData> {
         const content = chat.choices[0].message.content ?? "{}";
         const raw = content.replace(/^```json\s*|```$/gm, "").trim();
         rawData = JSON.parse(raw);
-    } else if (ENV_KEYS.OPENAI) {
+    } else if (ENV_KEYS.OPENAI && ENV_KEYS.OPENAI !== "your_openai_key_here") {
         const OpenAI = (await import("openai")).default;
         const openai = new OpenAI({ apiKey: ENV_KEYS.OPENAI });
         const chat = await openai.chat.completions.create({

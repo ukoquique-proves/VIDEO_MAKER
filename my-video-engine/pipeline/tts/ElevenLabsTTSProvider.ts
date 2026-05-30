@@ -12,13 +12,17 @@ export class ElevenLabsTTSProvider implements TTSProvider {
             throw new Error("ELEVENLABS_API_KEY not set");
         }
         this.client = new ElevenLabsClient({ apiKey });
-        this.voiceId = process.env.ELEVENLABS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM"; // Rachel
+        // Standard pre-made voice IDs (usually safe for free tier)
+        // Bella: EXAVITQu4vr4xnSDxMaL
+        // Antoni: AZnzlk1XhxPoo8BVmuRr
+        // Rachel: 21m00Tcm4TlvDq8ikWAM
+        this.voiceId = process.env.ELEVENLABS_VOICE_ID ?? "EXAVITQu4vr4xnSDxMaL"; 
     }
 
     async synthesize(text: string): Promise<TTSResult> {
         console.log(`   Using ElevenLabs voice: ${this.voiceId}`);
 
-        // Try timestamps endpoint first (for paid plans with precise timing)
+        // Try timestamps endpoint first (for paid plans or compatible voices)
         try {
             const response = await this.client.textToSpeech.convertWithTimestamps(
                 this.voiceId,
@@ -34,7 +38,7 @@ export class ElevenLabsTTSProvider implements TTSProvider {
 
             // Rebuild transcript from character-level timestamps
             if (!response.alignment) {
-                throw new Error("ElevenLabs response missing alignment data. The model may not support timestamps. Try a different modelId.");
+                throw new Error("ElevenLabs response missing alignment data.");
             }
 
             const { characters, characterStartTimesSeconds, characterEndTimesSeconds } = response.alignment;
@@ -53,7 +57,6 @@ export class ElevenLabsTTSProvider implements TTSProvider {
                     wordEnd = characterEndTimesSeconds[i];
                 }
 
-                // Flush on space or last character
                 if (ch === ' ' || isLast) {
                     if (wordChars.length > 0) {
                         transcript.push({
@@ -69,12 +72,18 @@ export class ElevenLabsTTSProvider implements TTSProvider {
             console.log("   ✅ Using ElevenLabs precise word timestamps");
             return { audioBuffer, transcript };
 
-        } catch (error) {
-            // If 402 payment required, fall back to standard endpoint with estimated timing
-            if (error instanceof Error && error.message.includes("402")) {
+        } catch (error: any) {
+            // If 402 payment required or specific paid_plan_required error, fall back to standard endpoint with estimated timing
+            const isPaymentRequired = 
+                (error.statusCode === 402) || 
+                (error.body?.detail?.type === "payment_required") ||
+                (error.message && error.message.includes("402"));
+
+            if (isPaymentRequired) {
                 console.warn("   ⚠️  ElevenLabs timestamps require paid plan. Falling back to standard synthesis with estimated timing.");
                 return this.synthesizeWithEstimation(text);
             }
+            console.error("   ❌ ElevenLabs synthesis failed:", error.body?.detail?.message || error.message);
             throw error;
         }
     }

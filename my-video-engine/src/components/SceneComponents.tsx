@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, staticFile } from "remotion";
 
 interface TitleCardProps {
     heading: string;
@@ -96,6 +96,58 @@ export const BulletList: React.FC<BulletListProps> = ({
     );
 };
 
+// ─── Image scene component ──────────────────────────────────────────────────
+interface ImageCardProps {
+    imageUrl: string;
+    caption?: string;
+    startFrame: number;
+}
+
+export const ImageCard: React.FC<ImageCardProps> = ({
+    imageUrl,
+    caption,
+    startFrame,
+}) => {
+    const frame = useCurrentFrame();
+    const { fps } = useVideoConfig();
+    const relFrame = Math.max(0, frame - startFrame);
+
+    const imageSpring = spring({
+        frame: relFrame,
+        fps,
+        config: { stiffness: 100, damping: 15 },
+    });
+
+    const captionOpacity = interpolate(relFrame, [20, 40], [0, 1], {
+        extrapolateRight: "clamp",
+        extrapolateLeft: "clamp",
+    });
+
+    const src = imageUrl.startsWith("/") ? staticFile(imageUrl) : imageUrl;
+
+    return (
+        <div style={styles.imageContainer}>
+            <div
+                style={{
+                    ...styles.imageWrapper,
+                    transform: `scale(${0.9 + 0.1 * imageSpring})`,
+                    opacity: imageSpring,
+                }}
+            >
+                <Img
+                    src={src}
+                    style={styles.image}
+                />
+            </div>
+            {caption && (
+                <p style={{ ...styles.imageCaption, opacity: captionOpacity }}>
+                    {caption}
+                </p>
+            )}
+        </div>
+    );
+};
+
 const styles: Record<string, React.CSSProperties> = {
     container: {
         flex: 1,
@@ -165,5 +217,39 @@ const styles: Record<string, React.CSSProperties> = {
         color: "#E6EDF3",
         lineHeight: 1.5,
         fontWeight: 500,
+    },
+    imageContainer: {
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "40px",
+    },
+    imageWrapper: {
+        width: "80%",
+        maxHeight: "70%",
+        borderRadius: 24,
+        overflow: "hidden",
+        boxShadow: "0 20px 50px rgba(0,0,0,0.5), 0 0 20px rgba(0,255,255,0.2)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#0B0F19",
+    },
+    image: {
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+    },
+    imageCaption: {
+        fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
+        fontSize: 32,
+        color: "rgba(255,255,255,0.85)",
+        textAlign: "center",
+        marginTop: 32,
+        fontWeight: 500,
+        textShadow: "0 2px 10px rgba(0,0,0,0.5)",
     },
 };

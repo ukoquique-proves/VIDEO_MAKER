@@ -1,0 +1,13 @@
+{
+  "name": "videomaker-workspace",
+  "version": "1.0.0",
+  "description": "Root workspace for VideoMaker project",
+  "scripts": {
+    "start": "npm start --prefix my-video-engine",
+    "build": "npm run build --prefix my-video-engine",
+    "render:demo": "npm run render:demo --prefix my-video-engine",
+    "pipeline": "npm run pipeline --prefix my-video-engine --",
+    "test": "npm test --prefix my-video-engine",
+    "typecheck": "npm run typecheck --prefix my-video-engine"
+  }
+}

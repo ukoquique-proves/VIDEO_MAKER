@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pipeline/tsconfig.json`: Fixed exclude path from `../../node_modules` to `../node_modules`
 
 ### Changed
+- **Orientation Update**: Changed the default video orientation to horizontal (1920x1080) for better desktop viewing.
+  - `src/index.tsx`: Swapped `Main` composition to 1920x1080 and renamed the 1080x1920 composition to `MainVertical`.
+  - `README.md`: Updated documentation to reflect the new default orientation and composition names.
 - `pipeline/generate.ts`: Refactored topic-specific facts into a dedicated `topics/` directory with deterministic loading order (alphabetical sorting).
 - `pipeline/generate.ts`: Enhanced `TIMESTAMP` format to `${Date.now()}_${uuid}` for combined chronological sortability and absolute uniqueness.
 - `pipeline/generate.ts`: Optimized `cleanupOldAudioFiles` to skip execution during dry runs, avoiding unnecessary directory scans.
@@ -119,6 +122,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CodeWindow.tsx`: Cursor `animation: none` replaced with a `blink 1s step-start infinite` keyframe animation, injected into the document head on first render.
 
 ### Added
+- **Free High-Quality TTS**: Integrated **`edge-tts`** as a primary free provider. This allows generating unlimited high-quality neural voiceovers without requiring an API key or incurring costs.
+- **Image Scene Support**: Added a new `image` scene type to the video engine.
+  - `src/Schema.ts`: Updated Zod schema to include image scenes.
+  - `src/components/SceneComponents.tsx`: Created `ImageCard` with spring animations and "rústico-técnico" styling.
+- **New Topic: Permaculture Project for Pedro**: Added a new topic file `permacultura_pedro.json` in `my-video-engine/pipeline/topics/` containing specific facts about the project in Lavalleja/Cerro Largo.
+- **Root Workspace Support**: Added a root `package.json` to proxy common commands (`start`, `build`, `pipeline`, `test`) to the `my-video-engine` directory.
+- **Support for Longer Videos**: Increased the maximum allowed duration in the LLM system prompt from 60 seconds to 180 seconds (3 minutes) and removed the hard limit of 3-4 scenes to accommodate more complex projects.
 - Created `ROADMAP.md` defining project phases and overall scope.
 - Bootstrapped Remotion project `my-video-engine` with React 18 and TypeScript.
 - Configured dependencies: `remotion`, `shiki` (syntax highlighting), and `zod` (`lucide-react` was added initially then removed as unused — see Fixed entries above).

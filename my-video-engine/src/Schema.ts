@@ -40,6 +40,13 @@ export const SceneSchema = z.discriminatedUnion("type", [
         snippetIndex: z.number(),
         bullets: z.array(z.string()),
     }),
+    z.object({
+        type: z.literal("image"),
+        startTime: z.number(),
+        endTime: z.number(),
+        imageUrl: z.string(),
+        caption: z.string().optional(),
+    }),
 ]);
 export type Scene = z.infer<typeof SceneSchema>;
 

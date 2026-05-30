@@ -33,23 +33,32 @@ export interface TTSProvider {
  * 4. ElevenLabs (10K chars/month free, limited voices)
  */
 export async function createTTSProvider(): Promise<TTSProvider | null> {
-    // Priority: Google Cloud TTS (free tier) > Azure > Amazon Polly > ElevenLabs
-    if (process.env.GOOGLE_CLOUD_API_KEY) {
+    // Priority: Edge-TTS (Free/Unlimited) > Google Cloud TTS > Azure > Amazon Polly > ElevenLabs
+    
+    // Edge-TTS is now our primary free provider (no API key needed)
+    try {
+        const { EdgeTTSProvider } = await import("./EdgeTTSProvider");
+        return new EdgeTTSProvider();
+    } catch (e) {
+        console.warn("   ⚠️  Edge-TTS not available, falling back to other providers.");
+    }
+
+    if (process.env.GOOGLE_CLOUD_API_KEY && process.env.GOOGLE_CLOUD_API_KEY !== "your_google_cloud_key_here") {
         const { GoogleCloudTTSProvider } = await import("./GoogleCloudTTSProvider");
         return new GoogleCloudTTSProvider();
     }
 
-    if (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION) {
+    if (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_KEY !== "your_azure_speech_key_here" && process.env.AZURE_SPEECH_REGION) {
         const { AzureTTSProvider } = await import("./AzureTTSProvider");
         return new AzureTTSProvider();
     }
 
-    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_ACCESS_KEY_ID !== "your_aws_access_key_here" && process.env.AWS_SECRET_ACCESS_KEY) {
         const { AmazonPollyTTSProvider } = await import("./AmazonPollyTTSProvider");
         return new AmazonPollyTTSProvider();
     }
     
-    if (process.env.ELEVENLABS_API_KEY) {
+    if (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_API_KEY !== "your_elevenlabs_key_here") {
         const { ElevenLabsTTSProvider } = await import("./ElevenLabsTTSProvider");
         return new ElevenLabsTTSProvider();
     }

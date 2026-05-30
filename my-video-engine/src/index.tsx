@@ -79,14 +79,14 @@ export const RemotionRoot: React.FC = () => {
 
     return (
         <>
-            {/* 9:16 Vertical (YouTube Shorts / TikTok) */}
+            {/* 16:9 Horizontal (YouTube standard) - DEFAULT */}
             <Composition
                 id="Main"
                 component={Orchestrator}
                 durationInFrames={calculateDuration(defaultProps, fps)}
                 fps={fps}
-                width={1080}
-                height={1920}
+                width={1920}
+                height={1080}
                 defaultProps={defaultProps}
                 calculateMetadata={({ props }) => {
                     return {
@@ -95,14 +95,14 @@ export const RemotionRoot: React.FC = () => {
                 }}
             />
 
-            {/* 16:9 Horizontal (YouTube standard) */}
+            {/* 9:16 Vertical (YouTube Shorts / TikTok) */}
             <Composition
-                id="MainWide"
+                id="MainVertical"
                 component={Orchestrator}
                 durationInFrames={calculateDuration(defaultProps, fps)}
                 fps={fps}
-                width={1920}
-                height={1080}
+                width={1080}
+                height={1920}
                 defaultProps={defaultProps}
                 calculateMetadata={({ props }) => {
                     return {

@@ -15,10 +15,10 @@ Remotion (TypeScript) app that renders short, high-density "code explainer" vide
 
 ## Verify your setup (smoke test)
 
-After Node and FFmpeg are in place, from **`my-video-engine/`**:
+After Node and FFmpeg are in place, from the **repository root**:
 
 ```bash
-npm install --legacy-peer-deps
+npm install --legacy-peer-deps --prefix my-video-engine
 npm run typecheck
 npm test              # Run automated integration tests
 npm run render:demo   # Render demo video (no API keys required)
@@ -43,14 +43,15 @@ A successful render writes **`output/videos/<topic_slug>.mp4`**. Open it to conf
 ## Quick start (this repo)
 
 ```bash
-cd my-video-engine
-npm install
+npm install --legacy-peer-deps --prefix my-video-engine
 npm start
 ```
 
 Opens Remotion Studio (default port from Remotion CLI, often `http://localhost:3000`).
 
-### Useful scripts (`my-video-engine/package.json`)
+### Useful scripts
+
+You can run these from the **repository root** (they proxy to `my-video-engine/`):
 
 | Script | Purpose |
 |--------|--------|
@@ -59,9 +60,9 @@ Opens Remotion Studio (default port from Remotion CLI, often `http://localhost:3
 | `npm run render:demo` | Render with `sample_data/demo.json` (no API keys) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run pipeline -- "<topic>"` | Full pipeline: LLM → TTS → MP4 |
-| `npm run pipeline -- "<topic>" -- --dry-run` | Script JSON only; skips TTS and render |
+| `npm run pipeline -- "<topic>" --dry-run` | Script JSON only; skips TTS and render |
 
-Render entry file is always **`src/index.tsx`** (not `.ts`). Compositions: **`Main`** (1080×1920) and **`MainWide`** (1920×1080), 30 fps.
+Render entry file is always **`src/index.tsx`** (not `.ts`). Compositions: **`Main`** (1920×1080) and **`MainVertical`** (1080×1920), 30 fps.
 
 ## Automation pipeline
 

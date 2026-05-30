@@ -4,7 +4,7 @@ import { VideoData, toFrames } from "./Schema";
 import { Camera } from "./components/Camera";
 import { CodeWindow } from "./components/CodeWindow";
 import { Subtitles } from "./components/Subtitles";
-import { TitleCard, BulletList } from "./components/SceneComponents";
+import { TitleCard, BulletList, ImageCard } from "./components/SceneComponents";
 import { ChapterProgress } from "./components/ChapterProgress";
 import { type BundledLanguage } from "shiki";
 
@@ -110,6 +110,20 @@ export const Orchestrator: React.FC<VideoData> = ({
                                         <div style={sceneStyles.splitRight}>
                                             <BulletList bullets={scene.bullets} startFrame={0} />
                                         </div>
+                                    </AbsoluteFill>
+                                </Sequence>
+                            );
+                        }
+
+                        if (scene.type === "image") {
+                            return (
+                                <Sequence key={`${scene.type}-${scene.startTime}`} from={from} durationInFrames={duration}>
+                                    <AbsoluteFill style={sceneStyles.centered}>
+                                        <ImageCard
+                                            imageUrl={scene.imageUrl}
+                                            caption={scene.caption}
+                                            startFrame={0}
+                                        />
                                     </AbsoluteFill>
                                 </Sequence>
                             );
