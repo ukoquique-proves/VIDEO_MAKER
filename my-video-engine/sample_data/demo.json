@@ -1,5 +1,5 @@
 {
-    "audioUrl": "/audio_java_hashmap_explained_1778116506845.mp3",
+    "audioUrl": "/audio_java_hashmap_explained_1778108554422.mp3",
     "transcript": [
         {
             "word": "Hello",
@@ -125,7 +125,7 @@
             "code": "// Add a reusable method\npublic static String greet(String name) {\n    return \"Hello, \" + name + \"!\";\n}",
             "title": "HelloWorld.java",
             "startTime": 20,
-            "endTime": 30
+            "endTime": 47
         }
     ],
     "scenes": [
@@ -145,7 +145,7 @@
         {
             "type": "split",
             "startTime": 20,
-            "endTime": 30,
+            "endTime": 47,
             "snippetIndex": 1,
             "bullets": [
                 "Methods accept parameters",
@@ -154,5 +154,5 @@
             ]
         }
     ],
-    "durationSeconds": 30
+    "durationSeconds": 47
 }

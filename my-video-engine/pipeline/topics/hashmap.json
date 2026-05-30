@@ -1,4 +1,5 @@
 {
+  "matchMode": "any",
   "keywords": ["hashmap", "hash map"],
   "channelContext": "teaching Java and backend development",
   "facts": [

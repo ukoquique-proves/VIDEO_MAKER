@@ -30,6 +30,10 @@ remotion-cache/
 *~
 .DS_Store
 
+# LibreOffice lock files
+.~lock.*#
+*.~lock.*
+
 # TypeScript
 *.tsbuildinfo
 

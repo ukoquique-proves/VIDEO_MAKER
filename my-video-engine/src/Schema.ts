@@ -63,9 +63,25 @@ export const VideoDataSchema = z.object({
     /** Optional: total duration override in seconds (default: last scene endTime) */
     durationSeconds: z.number().optional(),
     /**
+     * Source of the transcript (e.g. "EdgeTTS-real", "EdgeTTS-estimated")
+     */
+    transcriptSource: z.string().optional(),
+    /**
      * When false, hides the bottom chapter/progress bar. Omitted defaults to true.
      */
     showProgressBar: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+    data.scenes.forEach((scene, i) => {
+        if (scene.type === "code" || scene.type === "split") {
+            if (scene.snippetIndex < 0 || scene.snippetIndex >= data.codeSnippets.length) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ["scenes", i, "snippetIndex"],
+                    message: `snippetIndex ${scene.snippetIndex} is out of range — codeSnippets has ${data.codeSnippets.length} item(s)`,
+                });
+            }
+        }
+    });
 });
 export type VideoData = z.infer<typeof VideoDataSchema>;
 
@@ -94,6 +110,9 @@ export const chapterLabel = (scene: Scene, codeSnippets: CodeSnippet[]): string 
     if (scene.type === "code" || scene.type === "split") {
         const sn = codeSnippets[scene.snippetIndex];
         return sn?.title?.replace(/\.(java|ts|tsx|js|py)$/, "") ?? (scene.type === "split" ? "Recap" : "Code");
+    }
+    if (scene.type === "image") {
+        return scene.caption?.split(" ").slice(0, 3).join(" ") ?? "Image";
     }
     return "";
 };

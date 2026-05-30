@@ -19,8 +19,29 @@ import * as path from "path";
 import * as crypto from "crypto";
 import * as dotenv from "dotenv";
 import { VideoDataSchema, VideoData } from "../src/Schema";
-import { createTTSProvider } from "./tts/TTSProvider";
+import { getAvailableTTSProviders } from "./tts/TTSProvider";
 import { assertValidTemporalConstraints } from "../src/validation/temporalValidation";
+import { buildSystemPrompt, parseAudioFiles, pruneAudioFiles } from "./generateUtils";
+
+// ─── Unwrap LLM responses that nest the payload under a single key ────────────
+// Some models (e.g. Gemini) occasionally return { "video": { ...actual data... } }
+// instead of the flat object we asked for. If the top-level object is missing
+// required fields but has exactly one key whose value is an object that has them,
+// unwrap it transparently.
+function unwrapIfNested(raw: unknown): unknown {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+    const obj = raw as Record<string, unknown>;
+    if ("scenes" in obj) return obj; // already flat
+    const keys = Object.keys(obj);
+    if (keys.length === 1) {
+        const inner = obj[keys[0]];
+        if (typeof inner === "object" && inner !== null && "scenes" in inner) {
+            console.warn(`   ⚠️  LLM wrapped response under key "${keys[0]}" — unwrapping automatically.`);
+            return inner;
+        }
+    }
+    return raw;
+}
 
 // ─── Load .env ───────────────────────────────────────────────────────────────
 // Resolve .env from project root (works whether running from my-video-engine/ or project root)
@@ -43,85 +64,24 @@ if (!topic || topic.startsWith("--")) {
     process.exit(1);
 }
 
-const OUTPUT_DIR  = path.join(__dirname, "..", "output");
-const VIDEOS_DIR  = path.join(OUTPUT_DIR, "videos");
-const PROPS_DIR   = path.join(OUTPUT_DIR, "props");
-const SAMPLE_DIR  = path.join(__dirname, "..", "sample_data");
-const TIMESTAMP   = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`; // Chronological + unique ID
-const SLUG        = topic.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+const OUTPUT_DIR = path.join(__dirname, "..", "output");
+const VIDEOS_DIR = path.join(OUTPUT_DIR, "videos");
+const PROPS_DIR = path.join(OUTPUT_DIR, "props");
+const SAMPLE_DIR = path.join(__dirname, "..", "sample_data");
+const TIMESTAMP = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`; // Chronological + unique ID
+const SLUG = topic.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
 
 // ─── Prompt enrichment: load topic-specific facts from JSON ──────────────────
-function buildSystemPrompt(topic: string): string {
-    const t = topic.toLowerCase();
+function buildSystemPromptForTopic(topic: string): string {
     const TOPICS_DIR = path.join(__dirname, "topics");
-    
-    let factsBlock = "";
-    let channelContext = "teaching software engineering and modern development";
-
-    if (fs.existsSync(TOPICS_DIR)) {
-        // Sort files alphabetically to ensure deterministic keyword matching priority
-        const topicFiles = fs.readdirSync(TOPICS_DIR)
-            .filter(f => f.endsWith(".json"))
-            .sort();
-        
-        for (const file of topicFiles) {
-            try {
-                const content = JSON.parse(fs.readFileSync(path.join(TOPICS_DIR, file), "utf-8"));
-                if (content.keywords.some((k: string) => t.includes(k.toLowerCase()))) {
-                    factsBlock = `\nTOPIC FACTS — use these specific details in the script, do NOT omit them:\n- ${content.facts.join("\n- ")}`;
-                    channelContext = content.channelContext;
-                    break;
-                }
-            } catch (e) {
-                console.warn(`   ⚠️  Failed to parse topic file: ${file}`);
-            }
-        }
-    }
-
-    return `You are an expert educational video scriptwriter for a YouTube Shorts channel ${channelContext}.
-${factsBlock}
-
-Generate an educational video in JSON format matching this TypeScript schema:
-{
-  audioUrl: "" (empty, we'll fill later),
-  transcript: [{ word: string, startTime: number, endTime: number }][],
-  codeSnippets: [{ language: "java"|"typescript"|"javascript"|"python"|"bash"|"json"|"tsx"|"text", code: string, title: string, startTime: number, endTime: number }][],
-  scenes: (
-    | { type: "title", startTime: number, endTime: number, heading: string, subheading?: string }
-    | { type: "code", startTime: number, endTime: number, snippetIndex: number }
-    | { type: "split", startTime: number, endTime: number, snippetIndex: number, bullets: string[] }
-    | { type: "image", startTime: number, endTime: number, imageUrl: string, caption?: string }
-  )[],
-  durationSeconds?: number,
-  showProgressBar?: boolean
-}
-
-Rules:
-- Total duration: 30 to 180 seconds (set durationSeconds accordingly — do NOT cut the script short to fit a small time limit)
-- Omit showProgressBar unless you want it off; default in the app is on
-- transcript must cover the full audio narration word by word with realistic timestamps
-- All timestamps must be consistent (no overlaps)
-- Code must be clean, complete, and directly relevant to the topic facts above
-- Use SPECIFIC numbers and tool names from the facts — avoid vague language like "very fast" or "lightweight"
-- Bash snippets should show real commands a user would actually run
-- For the "Proyecto de Permacultura para Pedro", use the following image assets in your scenes:
-  - "/pedro_assets/condiciones_operativas.png" (Bloque 1)
-  - "/pedro_assets/estaciones_vida.png" (Bloque 2)
-  - "/pedro_assets/soberania_alimentaria.png" (Bloque 2)
-  - "/pedro_assets/burbuja_naturaleza.png" (Bloque 3)
-  - "/pedro_assets/baño_seco_boutique.png" (Bloque 3)
-  - "/pedro_assets/estacion_carga_solar.png" (Bloque 3)
-  - "/pedro_assets/proyeccion_financiera.png" (Bloque 4)
-- When using images, set the scene type to "image" and provide the imageUrl and a relevant caption.
-
-Respond ONLY with valid JSON, no markdown fences.`;
+    return buildSystemPrompt(topic, TOPICS_DIR);
 }
 
 // ─── Step 1: Generate video script JSON via LLM ───────────────────────────────
 async function generateScript(): Promise<VideoData> {
     console.log(`\n🧠  Generating script for: "${topic}"`);
 
-    const systemPrompt = buildSystemPrompt(topic);
+    const systemPrompt = buildSystemPromptForTopic(topic);
 
     let rawData: unknown;
     // Priority: Gemini > Groq > OpenAI (Gemini has most reliable JSON output)
@@ -138,7 +98,9 @@ async function generateScript(): Promise<VideoData> {
         });
 
         const content = result.response.text();
+        console.log("   🔍  Gemini raw (first 500 chars):", content.slice(0, 500));
         rawData = JSON.parse(content);
+        console.log("   🔍  Gemini response keys:", Object.keys(rawData as object));
     } else if (ENV_KEYS.GROQ && ENV_KEYS.GROQ !== "your_groq_key_here" && ENV_KEYS.GROQ.startsWith("gsk_")) {
         const OpenAI = (await import("openai")).default;
         const groq = new OpenAI({
@@ -176,7 +138,7 @@ async function generateScript(): Promise<VideoData> {
         rawData = JSON.parse(demo);
     }
 
-    const validated = VideoDataSchema.parse(rawData);
+    const validated = VideoDataSchema.parse(unwrapIfNested(rawData));
     console.log("   ✅  Script validated against schema!");
 
     // Validate temporal invariants (scene overlaps, timing consistency, etc.)
@@ -197,54 +159,70 @@ async function generateScript(): Promise<VideoData> {
 // ─── Step 2: Generate audio via TTS provider ────────────────────────────────────
 async function generateAudio(
     scriptData: VideoData
-): Promise<{ audioPath: string; updatedData: VideoData }> {
-    const ttsProvider = await createTTSProvider();
-    
-    if (!ttsProvider) {
-        console.warn("⚠️  No TTS API key found (GOOGLE_CLOUD_API_KEY or ELEVENLABS_API_KEY).");
+): Promise<{ audioUrl: string; updatedData: VideoData }> {
+    const providers = await getAvailableTTSProviders();
+
+    if (providers.length === 0) {
+        console.warn("⚠️  No TTS providers available (check API keys or dependencies).");
         console.warn("   Skipping audio — video will be silent.");
-        return { audioPath: "", updatedData: scriptData };
-    }
-
-    console.log(`\n🎙️  Generating voiceover via ${ttsProvider.name}...`);
-
-    // Group transcript by scenes to insert pauses
-    const sceneTexts: string[] = [];
-    for (const scene of scriptData.scenes) {
-        const sceneText = scriptData.transcript
-            .filter(w => w.startTime >= scene.startTime && w.startTime < scene.endTime)
-            .map(w => w.word)
-            .join(" ");
-        if (sceneText) sceneTexts.push(sceneText);
+        return { audioUrl: "", updatedData: scriptData };
     }
 
     // Extract plain text for fallback
     const text = scriptData.transcript.map((w) => w.word).join(" ");
 
-    const audioPath = path.join(OUTPUT_DIR, `audio_${SLUG}_${TIMESTAMP}.mp3`);
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    fs.mkdirSync(VIDEOS_DIR, { recursive: true });
-    fs.mkdirSync(PROPS_DIR, { recursive: true });
+    const PUBLIC_DIR = path.join(__dirname, "..", "public");
+    fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 
-    const { audioBuffer, transcript: realTranscript } = await ttsProvider.synthesize(text, sceneTexts);
-    
-    fs.writeFileSync(audioPath, audioBuffer);
-    console.log(`   ✅  Audio saved → ${audioPath}`);
-    console.log(`   ✅  Rebuilt ${realTranscript.length} word timestamps.`);
+    const audioFilename = `audio_${SLUG}_${TIMESTAMP}.mp3`;
+    const publicAudioPath = path.join(PUBLIC_DIR, audioFilename);
 
-    const updatedData: VideoData = { ...scriptData, transcript: realTranscript };
-    return { audioPath, updatedData };
+    // Try providers in order
+    for (const provider of providers) {
+        try {
+            console.log(`\n🎙️  Generating voiceover via ${provider.name}...`);
+            const { audioBuffer, transcript: realTranscript, transcriptSource } = await provider.synthesize(text);
+
+            fs.writeFileSync(publicAudioPath, audioBuffer);
+            console.log(`   ✅  Audio saved → ${publicAudioPath}`);
+            console.log(`   ✅  Rebuilt ${realTranscript.length} word timestamps.`);
+            if (transcriptSource) {
+                console.log(`   ℹ️  Transcript source: ${transcriptSource}`);
+            }
+
+            const updatedData: VideoData = {
+                ...scriptData,
+                transcript: realTranscript,
+                transcriptSource
+            };
+            return { audioUrl: `/${audioFilename}`, updatedData };
+        } catch (error) {
+            console.warn(`   ⚠️  ${provider.name} failed: ${error instanceof Error ? error.message : String(error)}`);
+            console.warn("   Retrying with next available provider...");
+        }
+    }
+
+    console.error("❌  All TTS providers failed.");
+    return { audioUrl: "", updatedData: scriptData };
 }
 
 // ─── Step 3: Remotion render ──────────────────────────────────────────────────
+const RENDER_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
 function renderVideo(propsPath: string): void {
     const outputPath = path.join(VIDEOS_DIR, `${SLUG}_${TIMESTAMP}.mp4`);
     console.log(`\n🎬  Rendering video → ${outputPath}`);
     const result = spawnSync(
         "npx",
         ["remotion", "render", "src/index.tsx", "Main", outputPath, `--props=${propsPath}`],
-        { stdio: "inherit", cwd: path.join(__dirname, "..") }
+        { stdio: "inherit", cwd: path.join(__dirname, ".."), timeout: RENDER_TIMEOUT_MS }
     );
+    if (result.signal === "SIGTERM") {
+        throw new Error(
+            `Remotion render timed out after ${RENDER_TIMEOUT_MS / 60000} minutes. ` +
+            "Possible causes: Shiki deadlock, missing asset, or hung browser process."
+        );
+    }
     if (result.status !== 0) {
         throw new Error(`Remotion render failed with exit code ${result.status}`);
     }
@@ -268,41 +246,13 @@ function renderVideo(propsPath: string): void {
 // ─── Step 4: Cleanup old audio files ───────────────────────────────────────────
 function cleanupOldAudioFiles(): void {
     const PUBLIC_DIR = path.join(__dirname, "..", "public");
-    const MAX_AGE_HOURS = 24; // Keep files younger than 24 hours
-    const MAX_FILES_TO_KEEP = 10; // Always keep at least 10 most recent
+    const MAX_AGE_HOURS = 24;
+    const MAX_FILES_TO_KEEP = 10;
 
-    if (!fs.existsSync(PUBLIC_DIR)) return;
+    const files = parseAudioFiles(PUBLIC_DIR);
+    if (files.length <= MAX_FILES_TO_KEEP) return;
 
-    const files = fs.readdirSync(PUBLIC_DIR)
-        .filter(f => f.startsWith("audio_") && f.endsWith(".mp3"))
-        .map(f => {
-            const fullPath = path.join(PUBLIC_DIR, f);
-            const stats = fs.statSync(fullPath);
-            return { name: f, path: fullPath, mtime: stats.mtime };
-        })
-        .sort((a, b) => b.mtime.getTime() - a.mtime.getTime()); // Newest first
-
-    if (files.length <= MAX_FILES_TO_KEEP) return; // Nothing to clean
-
-    const now = Date.now();
-    const maxAgeMs = MAX_AGE_HOURS * 60 * 60 * 1000;
-    let cleaned = 0;
-
-    // Remove files older than MAX_AGE_HOURS, keeping at least MAX_FILES_TO_KEEP
-    for (let i = MAX_FILES_TO_KEEP; i < files.length; i++) {
-        const file = files[i];
-        const ageMs = now - file.mtime.getTime();
-
-        if (ageMs > maxAgeMs) {
-            try {
-                fs.unlinkSync(file.path);
-                cleaned++;
-            } catch (e) {
-                console.warn(`   ⚠️  Could not remove old audio file: ${file.name}`);
-            }
-        }
-    }
-
+    const cleaned = pruneAudioFiles(files, MAX_FILES_TO_KEEP, MAX_AGE_HOURS * 60 * 60 * 1000);
     if (cleaned > 0) {
         console.log(`\n🧹  Cleaned up ${cleaned} old audio file(s) from public/`);
         console.log(`   (Kept ${Math.min(files.length - cleaned, MAX_FILES_TO_KEEP)} recent files)`);
@@ -319,38 +269,20 @@ function cleanupOldAudioFiles(): void {
 
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     fs.mkdirSync(VIDEOS_DIR, { recursive: true });
-    fs.mkdirSync(PROPS_DIR,  { recursive: true });
+    fs.mkdirSync(PROPS_DIR, { recursive: true });
 
     const scriptData = await generateScript();
 
     let updatedData: VideoData;
 
     if (DRY_RUN) {
-        // Dry run: skip ElevenLabs, use dummy audio URL
+        // Dry run: skip TTS, use dummy audio URL
         updatedData = { ...scriptData, audioUrl: "" };
         console.log("\n🧪  Dry run complete — Script generated and validated!");
-        console.log("   (Skipping ElevenLabs API call to save credits)");
     } else {
-        // Full pipeline: generate audio with ElevenLabs
-        const { audioPath, updatedData: dataWithAudio } = await generateAudio(scriptData);
-
-        // Copy audio to public directory and use relative path for Remotion
-        if (audioPath) {
-            const PUBLIC_DIR = path.join(__dirname, "..", "public");
-            fs.mkdirSync(PUBLIC_DIR, { recursive: true });
-
-            const audioFilename = `audio_${SLUG}_${TIMESTAMP}.mp3`;
-            const publicAudioPath = path.join(PUBLIC_DIR, audioFilename);
-            fs.copyFileSync(audioPath, publicAudioPath);
-
-            // Remove intermediate audio from output/ — public/ copy is what Remotion needs
-            fs.unlinkSync(audioPath);
-
-            // Use relative path starting with / for Remotion staticFile() to resolve from public/
-            updatedData = { ...dataWithAudio, audioUrl: `/${audioFilename}` };
-        } else {
-            updatedData = dataWithAudio;
-        }
+        // Full pipeline: generate audio
+        const { audioUrl, updatedData: dataWithAudio } = await generateAudio(scriptData);
+        updatedData = { ...dataWithAudio, audioUrl };
     }
 
     // ── Auto-correct durationSeconds from real transcript ──────────────────
@@ -359,7 +291,7 @@ function cleanupOldAudioFiles(): void {
     // In a full run, this corrects against real TTS word-level timestamps.
     const lastWord = updatedData.transcript[updatedData.transcript.length - 1];
     const lastScene = updatedData.scenes[updatedData.scenes.length - 1];
-    
+
     if (lastWord) {
         // Ensure duration covers both the audio and all scenes
         const audioEnd = Math.ceil(lastWord.endTime) + 1;
@@ -403,7 +335,7 @@ function cleanupOldAudioFiles(): void {
     } finally {
         // Only scan/cleanup audio if we actually ran a render or generated audio
         if (!DRY_RUN) {
-            cleanupOldAudioFiles(); 
+            cleanupOldAudioFiles();
         }
     }
 })();

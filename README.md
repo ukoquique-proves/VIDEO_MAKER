@@ -56,8 +56,8 @@ You can run these from the **repository root** (they proxy to `my-video-engine/`
 | Script | Purpose |
 |--------|--------|
 | `npm start` | Remotion Studio — `src/index.tsx` |
-| `npm run build` | Render `Main` → `output/videos/MyVideo.mp4` |
-| `npm run render:demo` | Render with `sample_data/demo.json` (no API keys) |
+| `npm run build` | Render `Main` → `output/MyVideo.mp4` |
+| `npm run render:demo` | Render with `sample_data/demo.json` → `output/demo.mp4` (no API keys) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run pipeline -- "<topic>"` | Full pipeline: LLM → TTS → MP4 |
 | `npm run pipeline -- "<topic>" --dry-run` | Script JSON only; skips TTS and render |
@@ -69,9 +69,12 @@ Render entry file is always **`src/index.tsx`** (not `.ts`). Compositions: **`Ma
 `my-video-engine/pipeline/generate.ts`:
 
 1. **LLM** — Builds JSON validated against `src/Schema.ts`. Provider order: **Gemini** (`GEMINI_API_KEY`, `gemini-2.5-flash`) → **Groq** (`GROQ_API_KEY`, model `llama-3.3-70b-versatile`) → **OpenAI** (`OPENAI_API_KEY`, `gpt-4o-mini`). If none are set, it falls back to `sample_data/demo.json`.
-2. **TTS (Text-to-Speech)** — Modular provider architecture supports **Google Cloud TTS** (recommended, free tier) or **ElevenLabs** (fallback). Provider auto-selected by available API keys. Transcript words/times are **rebuilt from API timing data** (not the LLM's draft). Without TTS keys, audio is skipped (silent render).
+2. **TTS (Text-to-Speech)** — Modular provider architecture with automatic fallback. Provider priority: **Edge-TTS** (free, no API key, requires `pip install edge-tts`) → **Google Cloud TTS** → **Azure Cognitive Services** → **Amazon Polly** → **ElevenLabs**. Transcript words/times are **rebuilt from real TTS timing data** (not the LLM's draft). If no provider is available, audio is skipped (silent render).
+   - **Edge-TTS**: Free, unlimited, no API key. Requires Python 3.8+ and `pip install edge-tts`. Voice configurable via `EDGE_TTS_VOICE` (default: `es-AR-TomasNeural`).
    - **Google Cloud TTS**: 4 million characters/month free. Set `GOOGLE_CLOUD_API_KEY` and optional `GOOGLE_CLOUD_VOICE_NAME` (default: `en-US-Standard-C`).
-   - **ElevenLabs**: Requires paid plan for library voices. Set `ELEVENLABS_API_KEY` and optional `ELEVENLABS_VOICE_ID`.
+   - **Azure Cognitive Services Speech**: 500,000 characters/month free. Set `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`.
+   - **Amazon Polly**: 5 million characters/month free for 12 months. Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+   - **ElevenLabs**: Set `ELEVENLABS_API_KEY` and optional `ELEVENLABS_VOICE_ID`. Precise word timestamps require a paid plan.
 3. **Render** — Writes props to `output/props/`, video to `output/videos/`, copies MP3 to `public/`, sets `audioUrl` to `/${filename}` for the bundler. Auto-cleans old files: keeps 3 most recent props and 2 most recent videos per topic.
 
 `--dry-run` validates the script only and writes props JSON; it does not call TTS APIs or Remotion render.
@@ -80,7 +83,7 @@ Render entry file is always **`src/index.tsx`** (not `.ts`). Compositions: **`Ma
 
 | Area | Role |
 |------|------|
-| `src/Schema.ts` | Zod schema: `audioUrl`, word `transcript`, `codeSnippets`, `scenes` (`title` \| `code` \| `split`) |
+| `src/Schema.ts` | Zod schema: `audioUrl`, word `transcript`, `codeSnippets`, `scenes` (`title` \| `code` \| `split` \| `image`) |
 | `src/Orchestrator.tsx` | Maps `scenes` to `<Sequence>`; global subtitles |
 | `src/components/CodeWindow.tsx` | Shiki + `delayRender` / `continueRender`; typing animation |
 | `src/components/Subtitles.tsx` | Current word highlighted; upcoming words dimmed; gaps keep last word dimmed |

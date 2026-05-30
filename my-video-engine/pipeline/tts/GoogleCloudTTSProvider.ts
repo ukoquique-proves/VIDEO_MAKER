@@ -57,15 +57,12 @@ export class GoogleCloudTTSProvider implements TTSProvider {
         };
     }
 
-    async synthesize(text: string, segments?: string[]): Promise<TTSResult> {
+    async synthesize(text: string): Promise<TTSResult> {
         console.log(`   Using Google Cloud TTS voice: ${this.voice.name} (${this.voice.languageCode})`);
 
-        // Use segments if provided to insert natural pauses
-        const contentToSynthesize = segments && segments.length > 0
-            ? segments.join(' <break time="1s"/> ')
-            : text;
-
-        const words = contentToSynthesize.split(/\s+/);
+        // Google Cloud TTS doesn't provide word-level timestamps directly
+        // We use SSML mark tags to approximate timing
+        const words = text.split(/\s+/);
         const ssmlMarks: string[] = [];
         let markIndex = 0;
 

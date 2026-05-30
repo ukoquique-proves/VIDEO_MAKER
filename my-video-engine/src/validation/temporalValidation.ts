@@ -4,6 +4,8 @@
  */
 
 import { VideoData, Scene } from "../Schema";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface TemporalValidationError {
   type: "temporal";

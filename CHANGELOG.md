@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **TTS Pipeline Hardening**:
+  - Refactored `generate.ts` to implement a robust TTS fallback mechanism. If a provider fails at runtime (e.g. EdgeTTS due to network or local dependency issues), the pipeline now automatically retries with the next available provider in the chain.
+  - Optimized audio file handling: Audio is now written directly to the `public/` directory, eliminating the risky intermediate copy/delete step and reducing crash vulnerability.
+- **EdgeTTS Reliability & Transparency**:
+  - `EdgeTTSProvider` now performs dependency verification (Python and `edge-tts` package) in its constructor.
+  - Added `transcriptSource` field to the `VideoData` schema and props output. This provides visibility into whether subtitles are driven by real WordBoundary events (`EdgeTTS-real`) or fallback estimation (`EdgeTTS-estimated`).
+  - Improved EdgeTTS estimation logic to better account for natural Spanish speech rates and pauses.
 - **Video Cutoff Logic**: Improved `durationSeconds` auto-correction to ensure it covers both the final audio word and the last scene's end time. This prevents the video from ending prematurely if scenes are longer than the narration.
-- **Natural Pacing**: Refactored the TTS pipeline to group narration by scenes and insert natural pauses between them. This improves the listener's experience by providing breathing room between different topics.
-- **ElevenLabs Plan Compatibility**: Updated the `ElevenLabsTTSProvider` to automatically handle library voice restrictions on free accounts by switching to standard pre-made voices.
-- **Edge-TTS Reliability**: Enhanced the `EdgeTTSProvider` to support natural pauses and deterministic timing estimation.
 
 ### Fixed (First Video Production — May 6-7, 2026)
 - **First video successfully created:** "Java HashMap explained" — 30-second educational Short with ElevenLabs (Bella voice) audio and synchronized subtitles

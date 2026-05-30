@@ -1,4 +1,5 @@
 {
+  "matchMode": "any",
   "keywords": ["puppy linux", "puppylinux"],
   "channelContext": "teaching Linux, lightweight OS setups, and AI-assisted development",
   "facts": [
