@@ -7,12 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed (Project Verification & Patching — May 29, 2026)
-- `src/index.tsx`: Cleaned up redundant code by removing the duplicate `calculateDurationFromProps` function and unifying duration logic under `calculateDuration`.
-- `pipeline/generate.ts`: Refactored the main execution loop to ensure `cleanupOldAudioFiles()` runs in a `finally` block. This prevents orphaned audio files in `public/` if a render fails or during dry runs.
-- `pipeline/generate.ts`: Fixed duration auto-correction to run in both full and `--dry-run` modes, ensuring props always have valid `durationSeconds` regardless of the execution path.
-- `src/components/Subtitles.tsx`: Fixed a subtitle "stickiness" bug by changing the word active check to use exclusive end time (`< endTime`). This eliminates 1-frame word overlaps during gaps.
-- `pipeline/tts/ElevenLabsTTSProvider.ts`: Fixed TypeScript error where `ReadableStream` was not properly iterable. Replaced `for await...of` with a standard `getReader()` loop for robust stream consumption across all Node.js 18+ environments.
+### Fixed
+- **Video Cutoff Logic**: Improved `durationSeconds` auto-correction to ensure it covers both the final audio word and the last scene's end time. This prevents the video from ending prematurely if scenes are longer than the narration.
+- **Natural Pacing**: Refactored the TTS pipeline to group narration by scenes and insert natural pauses between them. This improves the listener's experience by providing breathing room between different topics.
+- **ElevenLabs Plan Compatibility**: Updated the `ElevenLabsTTSProvider` to automatically handle library voice restrictions on free accounts by switching to standard pre-made voices.
+- **Edge-TTS Reliability**: Enhanced the `EdgeTTSProvider` to support natural pauses and deterministic timing estimation.
 
 ### Fixed (First Video Production — May 6-7, 2026)
 - **First video successfully created:** "Java HashMap explained" — 30-second educational Short with ElevenLabs (Bella voice) audio and synchronized subtitles

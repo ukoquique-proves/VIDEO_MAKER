@@ -13,9 +13,14 @@ export class EdgeTTSProvider implements TTSProvider {
         this.voice = process.env.EDGE_TTS_VOICE ?? "es-AR-TomasNeural";
     }
 
-    async synthesize(text: string): Promise<TTSResult> {
+    async synthesize(text: string, segments?: string[]): Promise<TTSResult> {
         console.log(`   Using Edge-TTS voice: ${this.voice}`);
         
+        // Use segments if provided to insert natural pauses
+        const contentToSynthesize = segments && segments.length > 0
+            ? segments.join(' -- ') // Edge-TTS usually pauses on double dashes or punctuation
+            : text;
+
         const tempAudioPath = path.join(process.cwd(), `temp_edge_tts_${Date.now()}.mp3`);
         
         try {
@@ -23,7 +28,7 @@ export class EdgeTTSProvider implements TTSProvider {
             // edge-tts --voice es-AR-TomasNeural --text "Hola" --write-media out.mp3
             const result = spawnSync("edge-tts", [
                 "--voice", this.voice,
-                "--text", text,
+                "--text", contentToSynthesize,
                 "--write-media", tempAudioPath
             ]);
 
@@ -40,7 +45,7 @@ export class EdgeTTSProvider implements TTSProvider {
 
             // Edge-TTS CLI doesn't provide word-level timestamps easily in one call.
             // We'll use the same estimation logic as ElevenLabs fallback for now.
-            const words = text.split(/\s+/).filter(w => w.length > 0);
+            const words = contentToSynthesize.split(/\s+/).filter(w => w.length > 0);
             const avgWordDuration = 0.22; // Spanish tends to be slightly slower than English per word
             const transcript: WordTimestamp[] = [];
 

@@ -19,9 +19,10 @@ export interface TTSProvider {
     /**
      * Generate audio from text with word-level timestamps
      * @param text The text to synthesize
+     * @param segments Optional segments for better pause control
      * @returns Audio buffer and word-level timestamps
      */
-    synthesize(text: string): Promise<TTSResult>;
+    synthesize(text: string, segments?: string[]): Promise<TTSResult>;
 }
 
 /**

@@ -19,15 +19,20 @@ export class ElevenLabsTTSProvider implements TTSProvider {
         this.voiceId = process.env.ELEVENLABS_VOICE_ID ?? "EXAVITQu4vr4xnSDxMaL"; 
     }
 
-    async synthesize(text: string): Promise<TTSResult> {
+    async synthesize(text: string, segments?: string[]): Promise<TTSResult> {
         console.log(`   Using ElevenLabs voice: ${this.voiceId}`);
+
+        // Extract content to synthesize
+        const contentToSynthesize = segments && segments.length > 0
+            ? segments.join("... ") // ElevenLabs interprets triple dots as natural pauses
+            : text;
 
         // Try timestamps endpoint first (for paid plans or compatible voices)
         try {
             const response = await this.client.textToSpeech.convertWithTimestamps(
                 this.voiceId,
                 {
-                    text,
+                    text: contentToSynthesize,
                     modelId: "eleven_multilingual_v2",
                     voiceSettings: { stability: 0.5, similarityBoost: 0.8 },
                 }
@@ -81,7 +86,7 @@ export class ElevenLabsTTSProvider implements TTSProvider {
 
             if (isPaymentRequired) {
                 console.warn("   ⚠️  ElevenLabs timestamps require paid plan. Falling back to standard synthesis with estimated timing.");
-                return this.synthesizeWithEstimation(text);
+                return this.synthesizeWithEstimation(contentToSynthesize);
             }
             console.error("   ❌ ElevenLabs synthesis failed:", error.body?.detail?.message || error.message);
             throw error;

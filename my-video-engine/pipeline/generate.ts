@@ -208,7 +208,17 @@ async function generateAudio(
 
     console.log(`\n🎙️  Generating voiceover via ${ttsProvider.name}...`);
 
-    // Extract plain text from transcript
+    // Group transcript by scenes to insert pauses
+    const sceneTexts: string[] = [];
+    for (const scene of scriptData.scenes) {
+        const sceneText = scriptData.transcript
+            .filter(w => w.startTime >= scene.startTime && w.startTime < scene.endTime)
+            .map(w => w.word)
+            .join(" ");
+        if (sceneText) sceneTexts.push(sceneText);
+    }
+
+    // Extract plain text for fallback
     const text = scriptData.transcript.map((w) => w.word).join(" ");
 
     const audioPath = path.join(OUTPUT_DIR, `audio_${SLUG}_${TIMESTAMP}.mp3`);
@@ -216,7 +226,7 @@ async function generateAudio(
     fs.mkdirSync(VIDEOS_DIR, { recursive: true });
     fs.mkdirSync(PROPS_DIR, { recursive: true });
 
-    const { audioBuffer, transcript: realTranscript } = await ttsProvider.synthesize(text);
+    const { audioBuffer, transcript: realTranscript } = await ttsProvider.synthesize(text, sceneTexts);
     
     fs.writeFileSync(audioPath, audioBuffer);
     console.log(`   ✅  Audio saved → ${audioPath}`);
@@ -348,10 +358,16 @@ function cleanupOldAudioFiles(): void {
     // NOTE: In DRY_RUN mode, this corrects against LLM draft timestamps (unverified).
     // In a full run, this corrects against real TTS word-level timestamps.
     const lastWord = updatedData.transcript[updatedData.transcript.length - 1];
+    const lastScene = updatedData.scenes[updatedData.scenes.length - 1];
+    
     if (lastWord) {
-        const realDuration = Math.ceil(lastWord.endTime) + 1; // +1s padding after last word
+        // Ensure duration covers both the audio and all scenes
+        const audioEnd = Math.ceil(lastWord.endTime) + 1;
+        const sceneEnd = lastScene ? Math.ceil(lastScene.endTime) + 1 : 0;
+        const realDuration = Math.max(audioEnd, sceneEnd);
+
         if (realDuration !== updatedData.durationSeconds) {
-            console.log(`\n⚠️  durationSeconds mismatch: LLM said ${updatedData.durationSeconds}s, actual audio ends at ${lastWord.endTime.toFixed(2)}s`);
+            console.log(`\n⚠️  durationSeconds mismatch: LLM said ${updatedData.durationSeconds}s, actual content ends at ${realDuration}s`);
             console.log(`   ✅  Auto-corrected durationSeconds → ${realDuration}s`);
             updatedData = { ...updatedData, durationSeconds: realDuration };
         }
